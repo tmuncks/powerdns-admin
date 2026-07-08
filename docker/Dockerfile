@@ -11,7 +11,6 @@ ARG BUILD_DEPENDENCIES="binutils glibc-common glibc-langpack-en file-devel file 
     python3-pip \
     python3-cffi \
     xmlsec1-devel \
-    npm \
     yarn \
     cargo"
 
