@@ -1,5 +1,5 @@
 # Build image
-FROM quay.io/fedora/fedora:43 AS builder
+FROM quay.io/fedora/fedora:44 AS builder
 
 ARG BUILD_DEPENDENCIES="binutils glibc-common glibc-langpack-en file-devel file gcc g++ make patch glibc-devel \
     libffi-devel \
@@ -11,8 +11,7 @@ ARG BUILD_DEPENDENCIES="binutils glibc-common glibc-langpack-en file-devel file 
     python3-pip \
     python3-cffi \
     xmlsec1-devel \
-    yarn \
-    cargo"
+    yarn"
 
 # ENV LC_ALL=en_US.UTF-8 \
 #     LANG=en_US.UTF-8 \
@@ -65,18 +64,17 @@ RUN mkdir -p /app && \
     cp -r /build/configs/docker_config.py /app/configs
 
 # Distribution Image
-FROM quay.io/fedora/fedora:43 AS runtime
+FROM quay.io/fedora/fedora:44 AS runtime
 
 ENV FLASK_APP=/app/powerdnsadmin/__init__.py \
     USER=pda
 
 RUN dnf update -y && \
-    dnf install -y mariadb-connector-c-devel postgresql python3-gunicorn python3-ldap python3-flask python3-psycopg2 python3-xmlsec xmlsec1 tzdata && \
+    dnf install -y mariadb-connector-c libpq xmlsec1 xmlsec1-openssl tzdata && \
     groupadd --system ${USER} && \
     adduser --system -g ${USER} ${USER} && \
     mkdir /data && \
     chown ${USER}:${USER} /data && \
-    setcap cap_net_bind_service=+ep $(readlink -f /usr/bin/python3) && \
     dnf clean all && \
     rm -rf /var/cache/dnf/*
 
