@@ -5,7 +5,7 @@ services:
     image: ghcr.io/kenmoini/powerdns-admin:latest
     container_name: powerdns_admin
     ports:
-      - "8080:80"
+      - "8080:8080"
     logging:
       driver: json-file
       options:

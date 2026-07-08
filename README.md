@@ -50,7 +50,7 @@ To run the application using the latest stable release on Docker Hub, run the fo
 $ docker run -d \
     -e SECRET_KEY='a-very-secret-key' \
     -v pda-data:/data \
-    -p 8080:80 \
+    -p 8080:8080 \
     ghcr.io/kenmoini/powerdns-admin:latest
 ```
 
