@@ -9,6 +9,7 @@ from collections import OrderedDict
 from flask import current_app
 from flask_login import AnonymousUserMixin
 from sqlalchemy import orm
+from sqlalchemy import func
 import qrcode as qrc
 import qrcode.image.svg as qrc_svg
 from io import BytesIO
@@ -420,12 +421,12 @@ class User(db.Model):
         Create local user witch stores username / password in the DB
         """
         # check if username existed
-        user = User.query.filter(str(User.username).lower() == self.username.lower()).first()
+        user = User.query.filter(func.lower(User.username) == self.username.lower()).first()
         if user:
             return {'status': False, 'msg': 'Username is already in use'}
 
         # check if email existed
-        user = User.query.filter(str(User.email).lower() == self.email.lower()).first()
+        user = User.query.filter(func.lower(User.email) == self.email.lower()).first()
         if user:
             return {'status': False, 'msg': 'Email address is already in use'}
 
