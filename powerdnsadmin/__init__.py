@@ -64,12 +64,19 @@ def create_app(config=None):
     from .models.base import db
     db.init_app(app)
 
-    # Load Flask-Session
-    app.config['SESSION_TYPE'] = app.config.get('SESSION_TYPE')
-    if 'SESSION_TYPE' in os.environ:
-        app.config['SESSION_TYPE'] = os.environ.get('SESSION_TYPE')
+    # Load Flask-Session type
+    session_type = os.environ.get('SESSION_TYPE', app.config.get('SESSION_TYPE'))
+    app.config['SESSION_TYPE'] = session_type
 
+    # Sqlalchemy backend
     app.config['SESSION_SQLALCHEMY'] = db
+
+    # Redis backend
+    if session_type == 'redis' and 'SESSION_REDIS_URL' in os.environ:
+        import redis
+        app.config['SESSION_REDIS'] = redis.from_url(os.environ.get('SESSION_REDIS_URL'))
+
+    # Initialize session extension using the backend set above
     sess = Session(app)
 
     # create sessions table if using sqlalchemy backend
