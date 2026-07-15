@@ -70,7 +70,7 @@ ENV FLASK_APP=/app/powerdnsadmin/__init__.py \
     USER=pda
 
 RUN dnf update -y && \
-    dnf install -y python3 python3-redis mariadb-connector-c libpq xmlsec1 xmlsec1-openssl tzdata && \
+    dnf install -y python3 mariadb-connector-c libpq xmlsec1 xmlsec1-openssl tzdata && \
     groupadd --system ${USER} && \
     adduser --system -g ${USER} ${USER} && \
     mkdir /data && \
