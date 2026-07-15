@@ -90,3 +90,16 @@ div.dt-container div.row:first-of-type { margin: 0.5rem 0 1rem 0 !important; }
 .has-error .help-block {
     color: var(--bs-danger);
 }
+
+/* Prevent record action buttons from wrapping onto multiple lines */
+td:has(button.button_edit),
+td:has(button.button_delete) {
+    white-space: nowrap;
+}
+
+/* Restore visible table borders (AdminLTE 4 dropped the implicit default) */
+table.records,
+table.records th,
+table.records td {
+    border: 1px solid #dee2e6;
+}
