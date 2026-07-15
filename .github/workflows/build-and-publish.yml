@@ -1,6 +1,10 @@
 ---
 name: 'Docker Image'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   BUILD_CONTEXT_PATH: .
   CONTAINERFILE_PATH: docker/Dockerfile
@@ -54,7 +58,6 @@ jobs:
       matrix:
         platform:
           - linux/amd64
-          - linux/arm64
 
     steps:
       - name: Prepare
