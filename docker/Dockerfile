@@ -70,7 +70,7 @@ ENV FLASK_APP=/app/powerdnsadmin/__init__.py \
     USER=pda
 
 RUN dnf update -y && \
-    dnf install -y python3 mariadb-connector-c libpq xmlsec1 xmlsec1-openssl tzdata && \
+    dnf install -y python3 mariadb-connector-c libpq xmlsec1 xmlsec1-openssl tzdata wget && \
     groupadd --system ${USER} && \
     adduser --system -g ${USER} ${USER} && \
     mkdir /data && \
@@ -93,6 +93,6 @@ RUN chown ${USER}:${USER} ./configs /app && \
 
 EXPOSE 8080/tcp
 USER ${USER}
-HEALTHCHECK --interval=5s --timeout=5s --start-period=20s --retries=5 CMD wget --output-document=- --quiet --tries=1 http://127.0.0.1${SCRIPT_NAME:-/}
+HEALTHCHECK --interval=5s --timeout=5s --start-period=20s --retries=5 CMD wget --output-document=- --quiet --tries=1 http://127.0.0.1:8080${SCRIPT_NAME:-/}
 ENTRYPOINT ["entrypoint.sh"]
 CMD ["gunicorn","powerdnsadmin:create_app()"]
