@@ -6,7 +6,7 @@ env:
   CONTAINERFILE_PATH: docker/Dockerfile
   WORKFLOW_TRIGGER: 1
   REGISTRY: ghcr.io
-  IMAGE_NAME: kenmoini/powerdns-admin
+  IMAGE_NAME: tmuncks/powerdns-admin
 
 on:
   workflow_dispatch:
