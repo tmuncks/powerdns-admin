@@ -220,6 +220,7 @@ def api_login_create_zone():
     if resp.status_code == 201:
         current_app.logger.debug("Request to powerdns API successful")
         data = request.get_json(force=True)
+        authenticated_user = api_authenticated_user()
 
         domain = Domain()
         domain.update()
@@ -228,15 +229,15 @@ def api_login_create_zone():
         history = History(msg='Add zone {0}'.format(
             data['name'].rstrip('.')),
             detail=json.dumps(data),
-            created_by=current_user.username,
+            created_by=authenticated_user.username,
             domain_id=domain_id)
         history.add()
 
-        if current_user.role.name not in ['Administrator', 'Operator']:
+        if authenticated_user.role.name not in ['Administrator', 'Operator']:
             current_app.logger.debug("User is ordinary user, assigning created zone")
             domain = Domain(name=data['name'].rstrip('.'))
             domain.update()
-            domain.grant_privileges([current_user.id])
+            domain.grant_privileges([authenticated_user.id])
 
     if resp.status_code == 409:
         raise (DomainAlreadyExists)
@@ -247,7 +248,7 @@ def api_login_create_zone():
 @api_bp.route('/pdnsadmin/zones', methods=['GET'])
 @api_basic_auth
 def api_login_list_zones():
-    if current_user.role.name not in ['Administrator', 'Operator']:
+    if api_authenticated_user().role.name not in ['Administrator', 'Operator']:
         domain_obj_list = get_user_domains()
     else:
         domain_obj_list = Domain.query.all()
@@ -275,7 +276,7 @@ def api_login_delete_zone(domain_name):
     if not domain:
         abort(404)
 
-    if current_user.role.name not in ['Administrator', 'Operator']:
+    if api_authenticated_user().role.name not in ['Administrator', 'Operator']:
         user_domains_obj_list = get_user_domains()
         user_domains_list = [item.name for item in user_domains_obj_list]
 
@@ -302,7 +303,7 @@ def api_login_delete_zone(domain_name):
             history = History(msg='Delete zone {0}'.format(
                 utils.pretty_domain_name(domain_name)),
                 detail='',
-                created_by=current_user.username,
+                created_by=api_authenticated_user().username,
                 domain_id=domain_id)
             history.add()
 
