@@ -368,7 +368,7 @@ def api_generate_apikey():
             current_app.logger.error(msg)
             raise AccountNotExists(message=msg)
 
-    if current_user.role.name not in ['Administrator', 'Operator']:
+    if api_authenticated_user().role.name not in ['Administrator', 'Operator']:
         # domain list of domain api key should be valid for
         # if not any domain error
         # role of api key, user cannot assign role above for api key
@@ -417,9 +417,10 @@ def api_generate_apikey():
 @api_basic_auth
 def api_get_apikeys(domain_name):
     apikeys = []
+    authenticated_user = api_authenticated_user()
     current_app.logger.debug("Getting apikeys")
 
-    if current_user.role.name not in ['Administrator', 'Operator']:
+    if authenticated_user.role.name not in ['Administrator', 'Operator']:
         if domain_name:
             msg = "Check if zone {0} exists and is allowed for user.".format(
                 domain_name)
@@ -432,7 +433,7 @@ def api_get_apikeys(domain_name):
             current_app.logger.debug(apikey_schema.dump(apikeys))
         else:
             msg_str = "Getting all allowed zones for user {0}"
-            msg = msg_str.format(current_user.username)
+            msg = msg_str.format(authenticated_user.username)
             current_app.logger.debug(msg)
 
             try:
@@ -461,9 +462,10 @@ def api_get_apikey(apikey_id):
     if not apikey:
         abort(404)
 
-    current_app.logger.debug(current_user.role.name)
+    authenticated_user = api_authenticated_user()
+    current_app.logger.debug(authenticated_user.role.name)
 
-    if current_user.role.name not in ['Administrator', 'Operator']:
+    if authenticated_user.role.name not in ['Administrator', 'Operator']:
         if apikey_id not in [a.id for a in get_user_apikeys()]:
             raise DomainAccessForbidden()
 
@@ -479,11 +481,12 @@ def api_delete_apikey(apikey_id):
     if not apikey:
         abort(404)
 
-    current_app.logger.debug(current_user.role.name)
+    authenticated_user = api_authenticated_user()
+    current_app.logger.debug(authenticated_user.role.name)
 
-    if current_user.role.name not in ['Administrator', 'Operator']:
+    if authenticated_user.role.name not in ['Administrator', 'Operator']:
         apikeys = get_user_apikeys()
-        user_domains_obj_list = current_user.get_domain().all()
+        user_domains_obj_list = authenticated_user.get_domain().all()
         apikey_domains_obj_list = apikey.domains
         user_domains_list = [item.name for item in user_domains_obj_list]
         apikey_domains_list = [item.name for item in apikey_domains_obj_list]
@@ -595,7 +598,8 @@ def api_update_apikey(apikey_id):
                 "Accounts are the same, apikey accounts won't be updated")
             accounts = None
 
-    if current_user.role.name not in ['Administrator', 'Operator']:
+    authenticated_user = api_authenticated_user()
+    if authenticated_user.role.name not in ['Administrator', 'Operator']:
         if role_name != 'User':
             msg = "User cannot assign other role than User"
             current_app.logger.error(msg)
@@ -609,7 +613,7 @@ def api_update_apikey(apikey_id):
         apikeys = get_user_apikeys()
         apikeys_ids = [apikey_item.id for apikey_item in apikeys]
 
-        user_domain_obj_list = current_user.get_domain().all()
+        user_domain_obj_list = authenticated_user.get_domain().all()
 
         domain_list = [item.name for item in domain_obj_list]
         user_domain_list = [item.name for item in user_domain_obj_list]
