@@ -9,6 +9,7 @@ from flask_login import current_user
 
 from .base import csrf
 from ..decorators import (
+    api_authenticated_user,
     api_basic_auth, api_can_create_domain, is_json, apikey_auth,
     apikey_can_create_domain, apikey_can_remove_domain,
     apikey_is_admin, apikey_can_access_domain, apikey_can_configure_dnssec,
@@ -56,20 +57,22 @@ def is_custom_header_api():
         return g.apikey.description 
 
 def get_user_domains():
+    authenticated_user = api_authenticated_user()
     domains = db.session.query(Domain) \
         .outerjoin(DomainUser, Domain.id == DomainUser.domain_id) \
         .outerjoin(Account, Domain.account_id == Account.id) \
         .outerjoin(AccountUser, Account.id == AccountUser.account_id) \
         .filter(
         db.or_(
-            DomainUser.user_id == current_user.id,
-            AccountUser.user_id == current_user.id
+            DomainUser.user_id == authenticated_user.id,
+            AccountUser.user_id == authenticated_user.id
         )).all()
     return domains
 
 
 def get_user_apikeys(domain_name=None):
     info = []
+    authenticated_user = api_authenticated_user()
     apikey_query = db.session.query(ApiKey) \
         .join(Domain.apikeys) \
         .outerjoin(DomainUser, Domain.id == DomainUser.domain_id) \
@@ -81,7 +84,7 @@ def get_user_apikeys(domain_name=None):
             AccountUser.user_id == User.id
         )
     ) \
-        .filter(User.id == current_user.id)
+        .filter(User.id == authenticated_user.id)
 
     if domain_name:
         info = apikey_query.filter(Domain.name == domain_name).all()
