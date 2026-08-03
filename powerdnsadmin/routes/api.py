@@ -742,7 +742,7 @@ def api_create_user():
         raise UserCreateDuplicate(message=result['msg'])
 
     history = History(msg='Created user {0}'.format(user.username),
-                      created_by=current_user.username)
+                      created_by=api_authenticated_user().username)
     history.add()
     return jsonify(user_single_schema.dump(user)), 201
 
@@ -815,7 +815,7 @@ def api_update_user(user_id):
             raise UserCreateFail(message=result['msg'])
 
     history = History(msg='Updated user {0}'.format(user.username),
-                      created_by=current_user.username)
+                      created_by=api_authenticated_user().username)
     history.add()
     return '', 204
 
@@ -829,7 +829,7 @@ def api_delete_user(user_id):
     if not user:
         current_app.logger.debug("User not found for id {}".format(user_id))
         abort(404)
-    if user.id == current_user.id:
+    if user.id == api_authenticated_user().id:
         current_app.logger.debug("Cannot delete self (id {})".format(user_id))
         msg = "Cannot delete self"
         raise UserDeleteFail(message=msg)
@@ -848,7 +848,7 @@ def api_delete_user(user_id):
             user.username))
 
     history = History(msg='Delete user {0}'.format(user.username),
-                      created_by=current_user.username)
+                      created_by=api_authenticated_user().username)
     history.add()
     return '', 204
 
