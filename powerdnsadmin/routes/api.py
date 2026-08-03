@@ -858,8 +858,9 @@ def api_delete_user(user_id):
 @api_basic_auth
 @api_role_can('list accounts')
 def api_list_accounts(account_name):
-    if current_user.role.name not in ['Administrator', 'Operator']:
-        msg = "{} role cannot list accounts".format(current_user.role.name)
+    authenticated_user = api_authenticated_user()
+    if authenticated_user.role.name not in ['Administrator', 'Operator']:
+        msg = "{} role cannot list accounts".format(authenticated_user.role.name)
         raise NotEnoughPrivileges(message=msg)
     else:
         if account_name is None:
@@ -877,8 +878,9 @@ def api_list_accounts(account_name):
 @api_basic_auth
 @csrf.exempt
 def api_create_account():
-    if current_user.role.name not in ['Administrator', 'Operator']:
-        msg = "{} role cannot create accounts".format(current_user.role.name)
+    authenticated_user = api_authenticated_user()
+    if authenticated_user.role.name not in ['Administrator', 'Operator']:
+        msg = "{} role cannot create accounts".format(authenticated_user.role.name)
         raise NotEnoughPrivileges(message=msg)
     data = request.get_json()
     name = data['name'] if 'name' in data else None
@@ -912,7 +914,7 @@ def api_create_account():
         raise AccountCreateFail(message=result['msg'])
 
     history = History(msg='Create account {0}'.format(account.name),
-                      created_by=current_user.username)
+                      created_by=api_authenticated_user().username)
     history.add()
     return jsonify(account_single_schema.dump(account)), 201
 
@@ -937,7 +939,7 @@ def api_update_account(account_id):
         msg = "Account name is immutable"
         raise AccountUpdateFail(message=msg)
 
-    if current_user.role.name not in ['Administrator', 'Operator']:
+    if api_authenticated_user().role.name not in ['Administrator', 'Operator']:
         msg = "User role update accounts"
         raise NotEnoughPrivileges(message=msg)
 
@@ -954,7 +956,7 @@ def api_update_account(account_id):
     if not result['status']:
         raise AccountUpdateFail(message=result['msg'])
     history = History(msg='Update account {0}'.format(account.name),
-                      created_by=current_user.username)
+                      created_by=api_authenticated_user().username)
     history.add()
     return '', 204
 
@@ -986,7 +988,7 @@ def api_delete_account(account_id):
         raise AccountDeleteFail(message=result['msg'])
 
     history = History(msg='Delete account {0}'.format(account.name),
-                      created_by=current_user.username)
+                      created_by=api_authenticated_user().username)
     history.add()
     return '', 204
 
@@ -1027,7 +1029,7 @@ def api_add_account_user(account_id, user_id):
     history = History(
         msg='Add {} user privileges on {}'.format(
             user.username, account.name),
-        created_by=current_user.username)
+        created_by=api_authenticated_user().username)
     history.add()
     return '', 204
 
@@ -1061,7 +1063,7 @@ def api_remove_account_user(account_id, user_id):
     history = History(
         msg='Revoke {} user privileges on {}'.format(
             user.username, account.name),
-        created_by=current_user.username)
+        created_by=api_authenticated_user().username)
     history.add()
     return '', 204
 
