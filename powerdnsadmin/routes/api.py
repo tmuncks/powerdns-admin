@@ -9,6 +9,7 @@ from flask_login import current_user
 
 from .base import csrf
 from ..decorators import (
+    api_authenticated_user,
     api_basic_auth, api_can_create_domain, is_json, apikey_auth,
     apikey_can_create_domain, apikey_can_remove_domain,
     apikey_is_admin, apikey_can_access_domain, apikey_can_configure_dnssec,
@@ -56,20 +57,22 @@ def is_custom_header_api():
         return g.apikey.description 
 
 def get_user_domains():
+    authenticated_user = api_authenticated_user()
     domains = db.session.query(Domain) \
         .outerjoin(DomainUser, Domain.id == DomainUser.domain_id) \
         .outerjoin(Account, Domain.account_id == Account.id) \
         .outerjoin(AccountUser, Account.id == AccountUser.account_id) \
         .filter(
         db.or_(
-            DomainUser.user_id == current_user.id,
-            AccountUser.user_id == current_user.id
+            DomainUser.user_id == authenticated_user.id,
+            AccountUser.user_id == authenticated_user.id
         )).all()
     return domains
 
 
 def get_user_apikeys(domain_name=None):
     info = []
+    authenticated_user = api_authenticated_user()
     apikey_query = db.session.query(ApiKey) \
         .join(Domain.apikeys) \
         .outerjoin(DomainUser, Domain.id == DomainUser.domain_id) \
@@ -81,7 +84,7 @@ def get_user_apikeys(domain_name=None):
             AccountUser.user_id == User.id
         )
     ) \
-        .filter(User.id == current_user.id)
+        .filter(User.id == authenticated_user.id)
 
     if domain_name:
         info = apikey_query.filter(Domain.name == domain_name).all()
@@ -217,6 +220,7 @@ def api_login_create_zone():
     if resp.status_code == 201:
         current_app.logger.debug("Request to powerdns API successful")
         data = request.get_json(force=True)
+        authenticated_user = api_authenticated_user()
 
         domain = Domain()
         domain.update()
@@ -225,15 +229,15 @@ def api_login_create_zone():
         history = History(msg='Add zone {0}'.format(
             data['name'].rstrip('.')),
             detail=json.dumps(data),
-            created_by=current_user.username,
+            created_by=authenticated_user.username,
             domain_id=domain_id)
         history.add()
 
-        if current_user.role.name not in ['Administrator', 'Operator']:
+        if authenticated_user.role.name not in ['Administrator', 'Operator']:
             current_app.logger.debug("User is ordinary user, assigning created zone")
             domain = Domain(name=data['name'].rstrip('.'))
             domain.update()
-            domain.grant_privileges([current_user.id])
+            domain.grant_privileges([authenticated_user.id])
 
     if resp.status_code == 409:
         raise (DomainAlreadyExists)
@@ -244,7 +248,7 @@ def api_login_create_zone():
 @api_bp.route('/pdnsadmin/zones', methods=['GET'])
 @api_basic_auth
 def api_login_list_zones():
-    if current_user.role.name not in ['Administrator', 'Operator']:
+    if api_authenticated_user().role.name not in ['Administrator', 'Operator']:
         domain_obj_list = get_user_domains()
     else:
         domain_obj_list = Domain.query.all()
@@ -272,7 +276,7 @@ def api_login_delete_zone(domain_name):
     if not domain:
         abort(404)
 
-    if current_user.role.name not in ['Administrator', 'Operator']:
+    if api_authenticated_user().role.name not in ['Administrator', 'Operator']:
         user_domains_obj_list = get_user_domains()
         user_domains_list = [item.name for item in user_domains_obj_list]
 
@@ -299,7 +303,7 @@ def api_login_delete_zone(domain_name):
             history = History(msg='Delete zone {0}'.format(
                 utils.pretty_domain_name(domain_name)),
                 detail='',
-                created_by=current_user.username,
+                created_by=api_authenticated_user().username,
                 domain_id=domain_id)
             history.add()
 
@@ -364,7 +368,7 @@ def api_generate_apikey():
             current_app.logger.error(msg)
             raise AccountNotExists(message=msg)
 
-    if current_user.role.name not in ['Administrator', 'Operator']:
+    if api_authenticated_user().role.name not in ['Administrator', 'Operator']:
         # domain list of domain api key should be valid for
         # if not any domain error
         # role of api key, user cannot assign role above for api key
@@ -413,9 +417,10 @@ def api_generate_apikey():
 @api_basic_auth
 def api_get_apikeys(domain_name):
     apikeys = []
+    authenticated_user = api_authenticated_user()
     current_app.logger.debug("Getting apikeys")
 
-    if current_user.role.name not in ['Administrator', 'Operator']:
+    if authenticated_user.role.name not in ['Administrator', 'Operator']:
         if domain_name:
             msg = "Check if zone {0} exists and is allowed for user.".format(
                 domain_name)
@@ -428,7 +433,7 @@ def api_get_apikeys(domain_name):
             current_app.logger.debug(apikey_schema.dump(apikeys))
         else:
             msg_str = "Getting all allowed zones for user {0}"
-            msg = msg_str.format(current_user.username)
+            msg = msg_str.format(authenticated_user.username)
             current_app.logger.debug(msg)
 
             try:
@@ -457,9 +462,10 @@ def api_get_apikey(apikey_id):
     if not apikey:
         abort(404)
 
-    current_app.logger.debug(current_user.role.name)
+    authenticated_user = api_authenticated_user()
+    current_app.logger.debug(authenticated_user.role.name)
 
-    if current_user.role.name not in ['Administrator', 'Operator']:
+    if authenticated_user.role.name not in ['Administrator', 'Operator']:
         if apikey_id not in [a.id for a in get_user_apikeys()]:
             raise DomainAccessForbidden()
 
@@ -475,11 +481,12 @@ def api_delete_apikey(apikey_id):
     if not apikey:
         abort(404)
 
-    current_app.logger.debug(current_user.role.name)
+    authenticated_user = api_authenticated_user()
+    current_app.logger.debug(authenticated_user.role.name)
 
-    if current_user.role.name not in ['Administrator', 'Operator']:
+    if authenticated_user.role.name not in ['Administrator', 'Operator']:
         apikeys = get_user_apikeys()
-        user_domains_obj_list = current_user.get_domain().all()
+        user_domains_obj_list = authenticated_user.get_domain().all()
         apikey_domains_obj_list = apikey.domains
         user_domains_list = [item.name for item in user_domains_obj_list]
         apikey_domains_list = [item.name for item in apikey_domains_obj_list]
@@ -591,7 +598,8 @@ def api_update_apikey(apikey_id):
                 "Accounts are the same, apikey accounts won't be updated")
             accounts = None
 
-    if current_user.role.name not in ['Administrator', 'Operator']:
+    authenticated_user = api_authenticated_user()
+    if authenticated_user.role.name not in ['Administrator', 'Operator']:
         if role_name != 'User':
             msg = "User cannot assign other role than User"
             current_app.logger.error(msg)
@@ -605,7 +613,7 @@ def api_update_apikey(apikey_id):
         apikeys = get_user_apikeys()
         apikeys_ids = [apikey_item.id for apikey_item in apikeys]
 
-        user_domain_obj_list = current_user.get_domain().all()
+        user_domain_obj_list = authenticated_user.get_domain().all()
 
         domain_list = [item.name for item in domain_obj_list]
         user_domain_list = [item.name for item in user_domain_obj_list]
@@ -734,7 +742,7 @@ def api_create_user():
         raise UserCreateDuplicate(message=result['msg'])
 
     history = History(msg='Created user {0}'.format(user.username),
-                      created_by=current_user.username)
+                      created_by=api_authenticated_user().username)
     history.add()
     return jsonify(user_single_schema.dump(user)), 201
 
@@ -807,7 +815,7 @@ def api_update_user(user_id):
             raise UserCreateFail(message=result['msg'])
 
     history = History(msg='Updated user {0}'.format(user.username),
-                      created_by=current_user.username)
+                      created_by=api_authenticated_user().username)
     history.add()
     return '', 204
 
@@ -821,7 +829,7 @@ def api_delete_user(user_id):
     if not user:
         current_app.logger.debug("User not found for id {}".format(user_id))
         abort(404)
-    if user.id == current_user.id:
+    if user.id == api_authenticated_user().id:
         current_app.logger.debug("Cannot delete self (id {})".format(user_id))
         msg = "Cannot delete self"
         raise UserDeleteFail(message=msg)
@@ -840,7 +848,7 @@ def api_delete_user(user_id):
             user.username))
 
     history = History(msg='Delete user {0}'.format(user.username),
-                      created_by=current_user.username)
+                      created_by=api_authenticated_user().username)
     history.add()
     return '', 204
 
@@ -850,8 +858,9 @@ def api_delete_user(user_id):
 @api_basic_auth
 @api_role_can('list accounts')
 def api_list_accounts(account_name):
-    if current_user.role.name not in ['Administrator', 'Operator']:
-        msg = "{} role cannot list accounts".format(current_user.role.name)
+    authenticated_user = api_authenticated_user()
+    if authenticated_user.role.name not in ['Administrator', 'Operator']:
+        msg = "{} role cannot list accounts".format(authenticated_user.role.name)
         raise NotEnoughPrivileges(message=msg)
     else:
         if account_name is None:
@@ -869,8 +878,9 @@ def api_list_accounts(account_name):
 @api_basic_auth
 @csrf.exempt
 def api_create_account():
-    if current_user.role.name not in ['Administrator', 'Operator']:
-        msg = "{} role cannot create accounts".format(current_user.role.name)
+    authenticated_user = api_authenticated_user()
+    if authenticated_user.role.name not in ['Administrator', 'Operator']:
+        msg = "{} role cannot create accounts".format(authenticated_user.role.name)
         raise NotEnoughPrivileges(message=msg)
     data = request.get_json()
     name = data['name'] if 'name' in data else None
@@ -904,7 +914,7 @@ def api_create_account():
         raise AccountCreateFail(message=result['msg'])
 
     history = History(msg='Create account {0}'.format(account.name),
-                      created_by=current_user.username)
+                      created_by=api_authenticated_user().username)
     history.add()
     return jsonify(account_single_schema.dump(account)), 201
 
@@ -929,7 +939,7 @@ def api_update_account(account_id):
         msg = "Account name is immutable"
         raise AccountUpdateFail(message=msg)
 
-    if current_user.role.name not in ['Administrator', 'Operator']:
+    if api_authenticated_user().role.name not in ['Administrator', 'Operator']:
         msg = "User role update accounts"
         raise NotEnoughPrivileges(message=msg)
 
@@ -946,7 +956,7 @@ def api_update_account(account_id):
     if not result['status']:
         raise AccountUpdateFail(message=result['msg'])
     history = History(msg='Update account {0}'.format(account.name),
-                      created_by=current_user.username)
+                      created_by=api_authenticated_user().username)
     history.add()
     return '', 204
 
@@ -978,7 +988,7 @@ def api_delete_account(account_id):
         raise AccountDeleteFail(message=result['msg'])
 
     history = History(msg='Delete account {0}'.format(account.name),
-                      created_by=current_user.username)
+                      created_by=api_authenticated_user().username)
     history.add()
     return '', 204
 
@@ -1019,7 +1029,7 @@ def api_add_account_user(account_id, user_id):
     history = History(
         msg='Add {} user privileges on {}'.format(
             user.username, account.name),
-        created_by=current_user.username)
+        created_by=api_authenticated_user().username)
     history.add()
     return '', 204
 
@@ -1053,7 +1063,7 @@ def api_remove_account_user(account_id, user_id):
     history = History(
         msg='Revoke {} user privileges on {}'.format(
             user.username, account.name),
-        created_by=current_user.username)
+        created_by=api_authenticated_user().username)
     history.add()
     return '', 204
 
