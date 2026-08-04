@@ -11,15 +11,20 @@ GUNICORN_ARGS="-t ${GUNICORN_TIMEOUT} --workers ${GUNICORN_WORKERS} --bind ${BIN
 if [ "$1" == gunicorn ]; then
     ATTEMPTS=0
     MAX_ATTEMPTS=15
-    until /bin/sh -c "flask db upgrade"; do
+    UPGRADE_LOG="$(mktemp)"
+    until /bin/sh -c "flask db upgrade" >"$UPGRADE_LOG" 2>&1; do
         ATTEMPTS=$((ATTEMPTS+1))
         if [ $ATTEMPTS -ge $MAX_ATTEMPTS ]; then
             echo "Database did not become available after $((MAX_ATTEMPTS*2)) seconds, giving up"
+            cat "$UPGRADE_LOG" >&2
+            rm -f "$UPGRADE_LOG"
             exit 1
         fi
-        echo "flask db upgrade failed, retrying in 2s (attempt $ATTEMPTS/$MAX_ATTEMPTS)"
+        echo "Database not ready, waiting 2s (attempt $ATTEMPTS/$MAX_ATTEMPTS)"
         sleep 2
     done
+    cat "$UPGRADE_LOG"
+    rm -f "$UPGRADE_LOG"
     exec "$@" $GUNICORN_ARGS
 
 else
