@@ -248,7 +248,8 @@ def api_login_create_zone():
 @api_bp.route('/pdnsadmin/zones', methods=['GET'])
 @api_basic_auth
 def api_login_list_zones():
-    if api_authenticated_user().role.name not in ['Administrator', 'Operator']:
+    authenticated_user = api_authenticated_user()
+    if authenticated_user.role.name not in ['Administrator', 'Operator']:
         domain_obj_list = get_user_domains()
     else:
         domain_obj_list = Domain.query.all()
@@ -262,6 +263,7 @@ def api_login_list_zones():
 @api_can_create_domain
 @csrf.exempt
 def api_login_delete_zone(domain_name):
+    authenticated_user = api_authenticated_user()
     pdns_api_url = Setting().get('pdns_api_url')
     pdns_api_key = Setting().get('pdns_api_key')
     pdns_version = Setting().get('pdns_version')
@@ -276,7 +278,7 @@ def api_login_delete_zone(domain_name):
     if not domain:
         abort(404)
 
-    if api_authenticated_user().role.name not in ['Administrator', 'Operator']:
+    if authenticated_user.role.name not in ['Administrator', 'Operator']:
         user_domains_obj_list = get_user_domains()
         user_domains_list = [item.name for item in user_domains_obj_list]
 
@@ -303,7 +305,7 @@ def api_login_delete_zone(domain_name):
             history = History(msg='Delete zone {0}'.format(
                 utils.pretty_domain_name(domain_name)),
                 detail='',
-                created_by=api_authenticated_user().username,
+                created_by=authenticated_user.username,
                 domain_id=domain_id)
             history.add()
 
@@ -318,6 +320,7 @@ def api_login_delete_zone(domain_name):
 @api_basic_auth
 @csrf.exempt
 def api_generate_apikey():
+    authenticated_user = api_authenticated_user()
     data = request.get_json()
     description = None
     role_name = None
@@ -368,7 +371,7 @@ def api_generate_apikey():
             current_app.logger.error(msg)
             raise AccountNotExists(message=msg)
 
-    if api_authenticated_user().role.name not in ['Administrator', 'Operator']:
+    if authenticated_user.role.name not in ['Administrator', 'Operator']:
         # domain list of domain api key should be valid for
         # if not any domain error
         # role of api key, user cannot assign role above for api key
@@ -681,6 +684,7 @@ def api_create_user():
     """
     Create new user
     """
+    authenticated_user = api_authenticated_user()
     data = request.get_json()
     username = data['username'] if 'username' in data else None
     password = data['password'] if 'password' in data else None
@@ -742,7 +746,7 @@ def api_create_user():
         raise UserCreateDuplicate(message=result['msg'])
 
     history = History(msg='Created user {0}'.format(user.username),
-                      created_by=api_authenticated_user().username)
+                      created_by=authenticated_user.username)
     history.add()
     return jsonify(user_single_schema.dump(user)), 201
 
@@ -755,6 +759,7 @@ def api_update_user(user_id):
     """
     Update existing user
     """
+    authenticated_user = api_authenticated_user()
     data = request.get_json()
     username = data['username'] if 'username' in data else None
     password = data['password'] if 'password' in data else None
@@ -815,7 +820,7 @@ def api_update_user(user_id):
             raise UserCreateFail(message=result['msg'])
 
     history = History(msg='Updated user {0}'.format(user.username),
-                      created_by=api_authenticated_user().username)
+                      created_by=authenticated_user.username)
     history.add()
     return '', 204
 
@@ -825,11 +830,12 @@ def api_update_user(user_id):
 @api_role_can('delete users')
 @csrf.exempt
 def api_delete_user(user_id):
+    authenticated_user = api_authenticated_user()
     user = User.query.get(user_id)
     if not user:
         current_app.logger.debug("User not found for id {}".format(user_id))
         abort(404)
-    if user.id == api_authenticated_user().id:
+    if user.id == authenticated_user.id:
         current_app.logger.debug("Cannot delete self (id {})".format(user_id))
         msg = "Cannot delete self"
         raise UserDeleteFail(message=msg)
@@ -848,7 +854,7 @@ def api_delete_user(user_id):
             user.username))
 
     history = History(msg='Delete user {0}'.format(user.username),
-                      created_by=api_authenticated_user().username)
+                      created_by=authenticated_user.username)
     history.add()
     return '', 204
 
@@ -914,7 +920,7 @@ def api_create_account():
         raise AccountCreateFail(message=result['msg'])
 
     history = History(msg='Create account {0}'.format(account.name),
-                      created_by=api_authenticated_user().username)
+                      created_by=authenticated_user.username)
     history.add()
     return jsonify(account_single_schema.dump(account)), 201
 
@@ -924,6 +930,7 @@ def api_create_account():
 @api_role_can('update accounts')
 @csrf.exempt
 def api_update_account(account_id):
+    authenticated_user = api_authenticated_user()
     data = request.get_json()
     name = data['name'] if 'name' in data else None
     description = data['description'] if 'description' in data else None
@@ -939,7 +946,7 @@ def api_update_account(account_id):
         msg = "Account name is immutable"
         raise AccountUpdateFail(message=msg)
 
-    if api_authenticated_user().role.name not in ['Administrator', 'Operator']:
+    if authenticated_user.role.name not in ['Administrator', 'Operator']:
         msg = "User role update accounts"
         raise NotEnoughPrivileges(message=msg)
 
@@ -956,7 +963,7 @@ def api_update_account(account_id):
     if not result['status']:
         raise AccountUpdateFail(message=result['msg'])
     history = History(msg='Update account {0}'.format(account.name),
-                      created_by=api_authenticated_user().username)
+                      created_by=authenticated_user.username)
     history.add()
     return '', 204
 
@@ -966,6 +973,7 @@ def api_update_account(account_id):
 @api_role_can('delete accounts')
 @csrf.exempt
 def api_delete_account(account_id):
+    authenticated_user = api_authenticated_user()
     account_list = [] or Account.query.filter(Account.id == account_id).all()
     if len(account_list) == 1:
         account = account_list[0]
@@ -988,7 +996,7 @@ def api_delete_account(account_id):
         raise AccountDeleteFail(message=result['msg'])
 
     history = History(msg='Delete account {0}'.format(account.name),
-                      created_by=api_authenticated_user().username)
+                      created_by=authenticated_user.username)
     history.add()
     return '', 204
 
@@ -1016,6 +1024,7 @@ def api_list_account_users(account_id):
 @api_role_can('add user to account')
 @csrf.exempt
 def api_add_account_user(account_id, user_id):
+    authenticated_user = api_authenticated_user()
     account = Account.query.get(account_id)
     if not account:
         abort(404)
@@ -1029,7 +1038,7 @@ def api_add_account_user(account_id, user_id):
     history = History(
         msg='Add {} user privileges on {}'.format(
             user.username, account.name),
-        created_by=api_authenticated_user().username)
+        created_by=authenticated_user.username)
     history.add()
     return '', 204
 
@@ -1044,6 +1053,7 @@ def api_add_account_user(account_id, user_id):
 @api_role_can('remove user from account')
 @csrf.exempt
 def api_remove_account_user(account_id, user_id):
+    authenticated_user = api_authenticated_user()
     account = Account.query.get(account_id)
     if not account:
         abort(404)
@@ -1063,7 +1073,7 @@ def api_remove_account_user(account_id, user_id):
     history = History(
         msg='Revoke {} user privileges on {}'.format(
             user.username, account.name),
-        created_by=api_authenticated_user().username)
+        created_by=authenticated_user.username)
     history.add()
     return '', 204
 
