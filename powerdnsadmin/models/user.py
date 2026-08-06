@@ -99,7 +99,7 @@ class User(db.Model):
 
     def verify_totp(self, token):
         totp = pyotp.TOTP(self.otp_secret)
-        return totp.verify(token, valid_window = 5)
+        return totp.verify(token, valid_window = 1)
 
     def get_hashed_password(self, plain_text_password=None):
         # Hash a password for the first time
