@@ -87,11 +87,20 @@ def get_user_apikeys(domain_name=None):
         .filter(User.id == authenticated_user.id)
 
     if domain_name:
-        info = apikey_query.filter(Domain.name == domain_name).all()
+        info = apikey_query.filter(Domain.name == domain_name).distinct().all()
     else:
-        info = apikey_query.all()
+        info = apikey_query.distinct().all()
 
-    return info
+    # The join above matches a key if the caller shares any one of its zones.
+    # Withhold keys that also reach zones or accounts the caller cannot see.
+    accessible_domains = {domain.name for domain in get_user_domains()}
+    return [
+        apikey for apikey in info
+        if apikey.role.name == 'User'
+        and not apikey.accounts
+        and {domain.name for domain in apikey.domains}.issubset(
+            accessible_domains)
+    ]
 
 
 def get_role_id(role_name, role_id=None):
