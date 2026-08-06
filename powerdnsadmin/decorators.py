@@ -312,6 +312,28 @@ def api_can_create_domain(f):
     return decorated_function
 
 
+def api_can_remove_domain(f):
+    """
+    Grant access if:
+        - user is in Operator role or higher, or
+        - allow_user_remove_domain is on
+    """
+
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        authenticated_user = api_authenticated_user()
+        if authenticated_user.role.name not in [
+            'Administrator', 'Operator'
+        ] and not Setting().get('allow_user_remove_domain'):
+            msg = "User {0} does not have enough privileges to remove zone"
+            current_app.logger.error(msg.format(authenticated_user.username))
+            raise NotEnoughPrivileges()
+
+        return f(*args, **kwargs)
+
+    return decorated_function
+
+
 def apikey_can_create_domain(f):
     """
     Grant access if:
