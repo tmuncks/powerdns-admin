@@ -174,6 +174,11 @@ def handle_not_enough_privileges(err):
     return jsonify(err.to_dict()), err.status_code
 
 
+@api_bp.errorhandler(404)
+def handle_404(err):
+    return jsonify({"msg": "Not Found"}), 404
+
+
 @api_bp.errorhandler(RequestIsNotJSON)
 def handle_request_is_not_json(err):
     return jsonify(err.to_dict()), err.status_code
