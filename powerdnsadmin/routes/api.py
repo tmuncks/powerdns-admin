@@ -9,7 +9,7 @@ from flask_login import current_user
 
 from .base import csrf
 from ..decorators import (
-    api_authenticated_user,
+    api_authenticated_user, api_can_remove_domain,
     api_basic_auth, api_can_create_domain, is_json, apikey_auth,
     apikey_can_create_domain, apikey_can_remove_domain,
     apikey_is_admin, apikey_can_access_domain, apikey_can_configure_dnssec,
@@ -87,11 +87,20 @@ def get_user_apikeys(domain_name=None):
         .filter(User.id == authenticated_user.id)
 
     if domain_name:
-        info = apikey_query.filter(Domain.name == domain_name).all()
+        info = apikey_query.filter(Domain.name == domain_name).distinct().all()
     else:
-        info = apikey_query.all()
+        info = apikey_query.distinct().all()
 
-    return info
+    # The join above matches a key if the caller shares any one of its zones.
+    # Withhold keys that also reach zones or accounts the caller cannot see.
+    accessible_domains = {domain.name for domain in get_user_domains()}
+    return [
+        apikey for apikey in info
+        if apikey.role.name == 'User'
+        and not apikey.accounts
+        and {domain.name for domain in apikey.domains}.issubset(
+            accessible_domains)
+    ]
 
 
 def get_role_id(role_name, role_id=None):
@@ -163,6 +172,11 @@ def handle_apikey_not_usable(err):
 @api_bp.errorhandler(NotEnoughPrivileges)
 def handle_not_enough_privileges(err):
     return jsonify(err.to_dict()), err.status_code
+
+
+@api_bp.errorhandler(404)
+def handle_404(err):
+    return jsonify({"msg": "Not Found"}), 404
 
 
 @api_bp.errorhandler(RequestIsNotJSON)
@@ -260,7 +274,7 @@ def api_login_list_zones():
 
 @api_bp.route('/pdnsadmin/zones/<string:domain_name>', methods=['DELETE'])
 @api_basic_auth
-@api_can_create_domain
+@api_can_remove_domain
 @csrf.exempt
 def api_login_delete_zone(domain_name):
     authenticated_user = api_authenticated_user()
@@ -1226,6 +1240,7 @@ def api_get_zones(server_id):
 
 @api_bp.route('/servers', methods=['GET'])
 @apikey_auth
+@apikey_is_admin
 def api_server_forward():
     resp = helper.forward_request()
     return resp.content, resp.status_code, resp.headers.items()
@@ -1233,6 +1248,7 @@ def api_server_forward():
 
 @api_bp.route('/servers/<string:server_id>', methods=['GET'])
 @apikey_auth
+@apikey_is_admin
 def api_server_config_forward(server_id):
     resp = helper.forward_request()
     return resp.content, resp.status_code, resp.headers.items()
@@ -1242,6 +1258,14 @@ def api_server_config_forward(server_id):
 @api_bp.route('/sync_domains', methods=['GET'])
 @apikey_or_basic_auth
 def sync_domains():
+    authenticated_role = (
+        g.apikey.role.name if hasattr(g, 'apikey')
+        else api_authenticated_user().role.name
+    )
+    if authenticated_role not in ['Administrator', 'Operator']:
+        raise NotEnoughPrivileges(
+            message='Only Administrator and Operator credentials may '
+                    'synchronize zones')
     domain = Domain()
     domain.update()
     return 'Finished synchronization in background', 200
