@@ -537,7 +537,7 @@ class User(db.Model):
         if enable_otp is not None:
             user.otp_secret = ""
 
-        if enable_otp == True:
+        if enable_otp:
             # generate the opt secret key
             user.otp_secret = base64.b32encode(os.urandom(10)).decode('utf-8')
 
