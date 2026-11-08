@@ -11,7 +11,7 @@ ARG BUILD_DEPENDENCIES="binutils glibc-common glibc-langpack-en file-devel file 
     python3-pip \
     python3-cffi \
     xmlsec1-devel \
-    yarn"
+    yarnpkg"
 
 # ENV LC_ALL=en_US.UTF-8 \
 #     LANG=en_US.UTF-8 \
