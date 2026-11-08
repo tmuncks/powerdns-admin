@@ -1,6 +1,6 @@
 import requests
-from urllib.parse import urlparse, urlunparse
-from flask import request, current_app
+from urllib.parse import unquote, urlparse, urlunparse
+from flask import abort, request, current_app
 
 from ..models import Setting
 
@@ -33,6 +33,10 @@ def forward_request():
     parsed_base = urlparse(pdns_api_url)
     base_path = parsed_base.path.rstrip('/')
     request_path = request.path.lstrip('/')
+    # Reject rather than resolve: requests collapses '..' after authorization
+    # has been decided on the route's zone_id.
+    if any(seg in ('.', '..') for seg in unquote(request_path).split('/')):
+        abort(400)
     target_path = f"{base_path}/{request_path}" if request_path else (base_path or '/')
     query = request.query_string.decode('utf-8') if request.query_string else ''
     url = urlunparse((
